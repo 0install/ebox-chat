@@ -1,0 +1,27 @@
+def networking(configFile, introducer, logger) {
+	# Generating the key-pair takes ages, so do it in another thread
+	#def serverVat := powerbox.spawnVat("server")
+
+	def surgeon := <elib:serial.makeSurgeon>.withSrcKit("de:").diverge()
+	surgeon.addFromSafeScope()
+
+	def config
+
+	if (configFile.exists()) {
+		logger(`loading config from $configFile`)
+		bind config := surgeon.unserialize(configFile.getText())
+		def [netConfig, vatIdentity] := config
+		introducer.setNetConfig(netConfig)
+		introducer.setVatIdentity(vatIdentity)
+		introducer.onTheAir()
+	} else {
+		logger("generating new key-pair...")
+		def vatIdentity := introducer.newVatIdentity()
+		introducer.onTheAir()
+		bind config := [introducer.getNetConfig(), vatIdentity]
+		configFile.setText(surgeon.serialize(config))
+		logger(`saved new configuration and settings to $configFile`)
+	}
+	def listen := config[0].getListenAddrPath()
+	logger(`ready and listening on $listen`)
+}

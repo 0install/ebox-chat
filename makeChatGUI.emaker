@@ -1,0 +1,53 @@
+def <swt> := <import:org.eclipse.swt.*>
+def <widget> := <swt:widgets.*>
+def SWT := <swt:makeSWT>
+def <swttools> := <import:org.erights.e.ui.swt.*>
+def swtGrid__quasiParser := <swttools:swtGridQParserMaker>()
+
+def makeContactsList(group, contacts, alert) {
+	def list := <widget:makeList>(group, SWT.getBORDER())
+
+	def inviteLabel := <widget:makeLabel>(group, 0)
+	inviteLabel.setText("Name: ")
+
+	def inviteName := <widget:makeText>(group, SWT.getBORDER())
+	def inviteButton := <widget:makeButton>(group, SWT.getPUSH())
+	inviteButton.setText("Invite")
+	inviteButton.addSelectionListener(def _ {
+		to widgetSelected(ev) {
+			try {
+				def name := inviteName.getText()
+				contacts.invite(name)
+				list.add(name)
+			} catch ex {
+				alert(`$ex`)
+			}
+		}
+	})
+
+	swtGrid`$group: $list.X.Y
+			$inviteLabel $inviteName.X $inviteButton`
+}
+
+def makeChatGUI(powerbox, contacts) {
+	def shell := powerbox.makeShell()
+	shell.setText("Boxchat")
+	shell.open()
+
+	def panel := shell.getPanel()
+
+	def log := <widget:makeText>(panel, SWT.getBORDER() | SWT.getWRAP() | SWT.getREAD_ONLY())
+
+	def contactsGroup := <widget:makeGroup>(panel, 0)
+	contactsGroup.setText("Contacts")
+
+	makeContactsList(contactsGroup, contacts, shell.alert)
+
+	swtGrid`$panel: $log.X.Y $contactsGroup.X.Y`
+
+	return def gui {
+		to log(msg :String) {
+			log.append(`system: $msg` + "\n")
+		}
+	}
+}

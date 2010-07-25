@@ -1,0 +1,14 @@
+def makeApplication(options, args) {
+	require(options == [], `Unsupported option: $options`)
+	require(args == [], `This program takes no arguments: $args`)
+
+	def contacts := <this:makeContacts>(makeSturdyRef)
+
+	def gui := <this:makeChatGUI>(powerbox, contacts)
+
+	def configFile := <data:serverConfig>
+	<this:networking>(configFile, introducer, gui.log)
+
+	# will continue when all windows are closed
+	interp.blockAtTop()
+}
