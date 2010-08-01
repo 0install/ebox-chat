@@ -1,79 +1,129 @@
-? var saved := null
 ? introducer.onTheAir()
 ? def acceptCall(callerName :String, caller) {
 >   println(`Call from $callerName`)
 >   caller.say("Hello")
 >   return def alicesLog { to say(msg) { println(`$callerName says $msg`); return "What?" } }
 > }
-? def dummyFile {
->   to exists() { return saved != null }
->   to setText(new) { print("Saved"); saved := new }
->   to getText() :String { return saved }
+? def makeDummyFile() {
+>   var saved := null
+>   def dummyFile {
+>     to setText(new) { print("Saved"); saved := new }
+>     to getText() :String { return saved }
+>   }
+>   return def atomicDummyFile {
+>     to exists() { return saved != null }
+>     to getNextFile() { return dummyFile }
+>     to getNowFile() { return dummyFile }
+>     to commit() { }
+>   }
 > }
 
 Create a new contacts list and add a contact called Bob:
 
-? def list := <this:makeContactsList>(identityMgr, dummyFile, acceptCall)
-? def bob := list.addContact("Bob")
+? def aliceFile := makeDummyFile()
+? def aliceList := <this:makeContactsList>(introducer, identityMgr, aliceFile, acceptCall)
+? def bob := aliceList.addContact("Bob")
 # stdout: Saved
+? var bobStatus := null
+? bob.monitorStatus((&bobStatus).put)
 ? bob
 # value: <contact>
-? bob.getStatus()
+? bobStatus
 # value: "unpaired"
 
 Send an invite to Bob:
 
-? def pair := bob.getPairingEndpoint()
-? bob.getStatus()
-# value: "pairing"
-? def endpoint := pair.getRcvr().run()
-# value: <SturdyRef to <endpoint>>
+? def inviteForBob := makeDummyFile().getNowFile()
+? def exporter := bob.getInviteExporter()
+? exporter.getDefaultFilename()
+# value: "Bob.invite"
+? exporter.saveAs(inviteForBob)
+? bobStatus
+# value: "invitation sent"
 
-# stdout: Saved
+We can't import our own invitation:
 
-? bob.getStatus()
+? def done := bob.getInviteImporter().open(inviteForBob)
+? interp.waitAtTop(done)
+? done
+# value: <ref broken by problem: can't import our own invitation!>
+
+Over on Bob's computer... create a contacts list for Bob too:
+
+? def bobList := <this:makeContactsList>(introducer, identityMgr, makeDummyFile(), null)
+
+Add Alice to his contacts and import her invitation:
+
+? def alice := bobList.addContact("Alice")
+? var aliceStatus := null
+? alice.monitorStatus((&aliceStatus).put)
+? aliceStatus
+# value: "unpaired"
+
+? def done := alice.getInviteImporter().open(inviteForBob)
+? interp.waitAtTop(done)
+# stdout: SavedSaved
+? done == null
+# value: true
+? aliceStatus
 # value: "paired"
 
-? pair.getRcvr().run()
-# problem: already paired!
+? bobStatus
+# value: "paired"
 
-Bob calls Alice:
+? <unsafe:org.erights.e.develop.trace.makeTraceController>.setProperty("tracelog_causality", "error")
+? def open := alice.getInviteImporter().open(inviteForBob)
+? interp.waitAtTop(open)
+? open
+# value: <ref broken by problem: already paired!>
+? <unsafe:org.erights.e.develop.trace.makeTraceController>.setProperty("tracelog_causality", "default")
+
+Bob calls Alice
 
 ? def bobsLog { to say(msg :String) { println(`Alice says: $msg`) } }
-? def call := endpoint.getRcvr().call(bobsLog)
+? def call := alice.getRemote().call(bobsLog)
 ? call.say("Hi!")
 # stdout: Bob says Hi!
 #
 
 # value: "What?"
 
-? def pair1 := bob.getPairingEndpoint()
-? def pair2 := bob.getPairingEndpoint()
-? pair1.getRcvr().run()
+? def invite1 := makeDummyFile().getNowFile()
+? def invite2 := makeDummyFile().getNowFile()
+? exporter.saveAs(invite1)
+? def pair1 := introducer.sturdyFromURI(invite1.getText()).getRcvr()
+? exporter.saveAs(invite2)
+? pair1.pair(alice.getEndpoint())
 # problem: pairing offer superceeded by new offer
 
+? def carol := aliceList.addContact("Carol")
 ? bob.rename("Bob")
-# problem: already have a contact named Bob!
+? bob.rename("Carol")
+# problem: already have a contact named Carol!
 
 ? bob.rename("Robert")
 # stdout: Saved
 
-? list.listContacts()
-# value: ["Robert" => <contact>]
+? aliceList.listContacts()
+# value: ["Carol" => <contact>, "Robert" => <contact>]
 ? bob.getName()
 # value: "Robert"
 
 ? def dummyIdentityMgr { to makeSturdyRef(obj, base, time) {} }
-? def newList := <this:makeContactsList>(dummyIdentityMgr, dummyFile, acceptCall)
+? def dummyIntroducer { to get(uri) { return null } }
+? def newList := <this:makeContactsList>(dummyIntroducer, dummyIdentityMgr, aliceFile, acceptCall)
 # value: <contactsList>
 ? newList.listContacts()
-# value: ["Robert" => <contact>]
+# value: ["Carol" => <contact>, "Robert" => <contact>]
 
 ? bob.remove()
 # stdout: Saved
-? endpoint.getRcvr().call(bobsLog)
+? alice.getRemote().call(bobsLog)
 # problem: contact removed
 
+? carol.remove()
+# stdout: Saved
+
 ? def eParser := <elang:syntax.makeEParser>
-? eParser(saved).eval(safeScope)
+? eParser(aliceFile.getNowFile().getText()).eval(safeScope)
 # value: [].asMap()

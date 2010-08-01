@@ -1,11 +1,14 @@
 def eParser := <elang:syntax.makeEParser>
-def surgeon := <elib:serial.makeSurgeon>.withSrcKit(null)
 def Term := <type:org.quasiliteral.term.Term>
 def MAX_LONG := 0x7fffffffffffffff
 
-def makeContactsList(identityMgr, contactsFile, acceptCall) {
+def makeContactsList(introducer, identityMgr, contactsFile, acceptCall) {
+	def surgeon := <elib:serial.makeSurgeon>.withSrcKit(null).diverge()
+	surgeon.addExit(introducer, "captp__uriGetter")
+	surgeon.addLoader(introducer, "captp__uriGetter")
+
 	var contactsDoc := if (contactsFile.exists()) {
-		eParser(contactsFile.getNowFile().getText()).eval(safeScope)
+		eParser(contactsFile.getNowFile().getText()).eval(safeScope.with([ "captp__uriGetter" => introducer ]))
 	} else {
 		[].asMap()
 	}
@@ -36,46 +39,65 @@ def makeContactsList(identityMgr, contactsFile, acceptCall) {
 
 		var currentPairing := null
 
+		var status := null
+		def myNotifier
+		def changed(newStatus :String) {
+			status := newStatus
+			myNotifier<-(newStatus)
+		}
+
+		changed(
+			if (contactsDoc[swissBase].fetch("remoteEnd", fn {null}) != null) {
+				"paired"
+			} else {
+				"unpaired"
+			}
+		)
+
+		def getPairingEndpoint() {
+			require(optProblem == null, optProblem)
+
+			if (currentPairing != null) {
+				currentPairing.disable()
+				currentPairing := null
+			}
+
+			var optPairingProblem := null
+			def pair {
+				to pair(remoteEnd :SturdyRef) {
+					require(optPairingProblem == null, optPairingProblem)
+					optPairingProblem := Ref.broken("already paired!")
+					currentPairing := null
+					contactsDoc with= (swissBase, contactsDoc[swissBase].with("remoteEnd", remoteEnd))
+					save()
+					changed("paired")
+					return endpointSR
+				}
+
+				to disable() {
+					optPairingProblem := Ref.broken("pairing offer superceeded by new offer")
+				}
+			}
+			currentPairing := pair		# Prevent GC
+			return identityMgr.makeSturdyRef(pair, identityMgr.nextSwiss(), MAX_LONG)
+		}
+
 		def contact {
-			to __holdEndpoint() {
-				endpoint		# Prevent GC
+			to getEndpoint() {
+				endpoint		# (prevents endpoint getting GC'd)
+				return endpointSR
+			}
+
+			to getRemote() {
+				return contactsDoc[swissBase]["remoteEnd"].getRcvr()
 			}
 
 			to getStatus() {
-				if (currentPairing != null) {
-					return "pairing"
-				} else if (contactsDoc[swissBase].fetch("paired", fn {false})) {
-					return "paired"
-				} else {
-					return "unpaired"
-				}
+				return status
 			}
 
-			to getPairingEndpoint() {
-				require(optProblem == null, optProblem)
-
-				if (currentPairing != null) {
-					currentPairing.disable()
-					currentPairing := null
-				}
-
-				var optPairingProblem := null
-				def pair {
-					to run() {
-						require(optPairingProblem == null, optPairingProblem)
-						optPairingProblem := Ref.broken("already paired!")
-						currentPairing := null
-						contactsDoc with= (swissBase, contactsDoc[swissBase].with("paired", true))
-						save()
-						return endpointSR
-					}
-
-					to disable() {
-						optPairingProblem := Ref.broken("pairing offer superceeded by new offer")
-					}
-				}
-				currentPairing := pair		# Prevent GC
-				return identityMgr.makeSturdyRef(pair, identityMgr.nextSwiss(), MAX_LONG)
+			to monitorStatus(notifier) {
+				bind myNotifier := notifier
 			}
 
 			to getName() {
@@ -107,6 +129,44 @@ def makeContactsList(identityMgr, contactsFile, acceptCall) {
 
 				save()
 			}
+
+			to getInviteExporter() {
+				return def inviteExporter {
+					to getDefaultFilename() {
+						return `${getName()}.invite`
+					}
+
+					to saveAs(file) {
+						file.setText(introducer.sturdyToURI(getPairingEndpoint()))
+						changed("invitation sent")
+					}
+				}
+			}
+
+			to getInviteImporter() {
+				return def inviteExporter {
+					to open(file) {
+						def inviteSR := introducer.sturdyFromURI(file.getText())
+						def invite := inviteSR.getRcvr()
+						changed("accepting invitation")
+						return when (invite) -> {
+							if (invite == currentPairing) {
+								throw("can't import our own invitation!")
+								changed("unpaired")
+							}
+							when (def remoteEnd := invite<-pair(contact.getEndpoint())) -> {
+								contactsDoc with= (swissBase, contactsDoc[swissBase].with("remoteEnd", remoteEnd))
+								save()
+								changed("paired")
+							}
+						} catch ex {
+							changed("failed")
+							throw(ex)
+						}
+					}
+				}
+			}
+
 		}
 
 		def name := contact.getName()
@@ -147,7 +207,7 @@ def makeContactsList(identityMgr, contactsFile, acceptCall) {
 		}
 
 		to listContacts() :Map {
-			return nameToContact.snapshot()
+			return nameToContact.sortKeys()
 		}
 	}
 }

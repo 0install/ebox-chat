@@ -10,9 +10,9 @@ def makeEditor(tree) {
 	treeEditor.setGrabHorizontal(true)
 	treeEditor.setMinimumWidth(50)
 
-	return def edit(item, doneCallback) {
+	return def edit(item, initialText, doneCallback) {
 		def text := <widget:makeText>(tree, 0)
-		text.setText(item.getText())
+		text.setText(initialText)
 		text.selectAll()
 		<widget:makeControl>.transferFocus([tree], text)
 
@@ -56,11 +56,18 @@ def makeContactsGUI(powerbox, contactsList) {
 
 	def menu := <widget:makeMenu>(list)
 
+	def setLabel(item) {
+		def contact := itemToContact[item]
+		def name := contact.getName()
+		def status := contact.getStatus()
+		item.setText(`$name ($status)`)
+	}
+
 	def guiRename(item) {
 		def contact := itemToContact[item]
-		rename(item, def _(newName) {
+		rename(item, contact.getName(), def _(newName) {
 			contact.rename(newName)
-			item.setText(newName)
+			setLabel(item)
 		})
 	}
 
@@ -77,6 +84,9 @@ def makeContactsGUI(powerbox, contactsList) {
 	invite.setText("Send Invitation")
 	invite.addSelectionListener(def _ {
 		to widgetSelected(ev) {
+			def [item] := list.getSelection()
+			def contact := itemToContact[item]
+			shell.saveFile(contact.getInviteExporter())
 		}
 	})
 
@@ -84,6 +94,9 @@ def makeContactsGUI(powerbox, contactsList) {
 	accept.setText("Accept Invitation")
 	accept.addSelectionListener(def _ {
 		to widgetSelected(ev) {
+			def [item] := list.getSelection()
+			def contact := itemToContact[item]
+			shell.openFile(contact.getInviteImporter())
 		}
 	})
 
@@ -100,8 +113,9 @@ def makeContactsGUI(powerbox, contactsList) {
 			<widget:makeControl>.transferFocus([panel], list)
 			def contact := contactsList.addContact("<unnamed contact>")
 			itemToContact[item] := contact
-			item.setText(contact.getName())
+			setLabel(item)
 			guiRename(item)
+			contact.monitorStatus(fn newStatus { setLabel(item) })
 		}
 	})
 
@@ -116,8 +130,9 @@ def makeContactsGUI(powerbox, contactsList) {
 
 	for contactName => contact in contactsList.listContacts() {
 		def item := <widget:makeTreeItem>(list, 0)
-		item.setText(contactName)
 		itemToContact[item] := contact
+		setLabel(item)
+		contact.monitorStatus(fn newStatus { setLabel(item) })
 	}
 
 	swtGrid`$panel: $list.X.Y

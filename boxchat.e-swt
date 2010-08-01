@@ -11,7 +11,7 @@ def makeApplication(options, args) {
 	def configFile := <data:serverConfig>
 	<this:networking>(configFile, introducer, println)
 
-	def list := <this:makeContactsList>(identityMgr, makeAtomicFile(<data>, "contacts.json"), acceptCall)
+	def list := <this:makeContactsList>(introducer, identityMgr, makeAtomicFile(<data>, "contacts.json"), acceptCall)
 	def gui := <this:makeContactsGUI>(powerbox, list)
 
 	# will continue when all windows are closed
