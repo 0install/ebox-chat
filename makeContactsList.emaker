@@ -5,13 +5,14 @@ def MAX_LONG := 0x7fffffffffffffff
 
 def makeContactsList(identityMgr, contactsFile, acceptCall) {
 	var contactsDoc := if (contactsFile.exists()) {
-		eParser(contactsFile.getText()).eval(safeScope)
+		eParser(contactsFile.getNowFile().getText()).eval(safeScope)
 	} else {
 		[].asMap()
 	}
 
 	def save() {
-		contactsFile.setText(surgeon.serialize(contactsDoc))
+		contactsFile.getNextFile().setText(surgeon.serialize(contactsDoc))
+		contactsFile.commit()
 	}
 
 	def nameToContact := [].asMap().diverge()
@@ -83,6 +84,10 @@ def makeContactsList(identityMgr, contactsFile, acceptCall) {
 
 			to rename(newName :String) {
 				require(optProblem == null, optProblem)
+				if (newName == getName()) {
+					return
+				}
+
 				if (nameToContact.maps(newName)) {
 					throw(`already have a contact named $newName!`)
 				} else {

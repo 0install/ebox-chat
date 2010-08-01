@@ -1,0 +1,125 @@
+def <swt> := <import:org.eclipse.swt.*>
+def <widget> := <swt:widgets.*>
+def SWT := <swt:makeSWT>
+def <swttools> := <import:org.erights.e.ui.swt.*>
+def swtGrid__quasiParser := <swttools:swtGridQParserMaker>()
+
+def makeEditor(tree) {
+	def treeEditor := <swt:custom.makeTreeEditor>(tree)
+	treeEditor.setHorizontalAlignment(SWT.getLEFT())
+	treeEditor.setGrabHorizontal(true)
+	treeEditor.setMinimumWidth(50)
+
+	return def edit(item, doneCallback) {
+		def text := <widget:makeText>(tree, 0)
+		text.setText(item.getText())
+		text.selectAll()
+		<widget:makeControl>.transferFocus([tree], text)
+
+		text.addKeyListener(def _ {
+			to keyPressed(event) {
+				def key := event.getCharacter()
+				if (key == SWT.getCR()) {
+					doneCallback(text.getText())
+					text.dispose()
+				} else if (key == SWT.getESC()) {
+					text.dispose()
+				}
+			}
+			match [verb, args] {
+			}
+		})
+
+		text.addFocusListener(def _ {
+			to focusLost(event) {
+				doneCallback(text.getText())
+				text.dispose()
+			}
+			match [verb, args] {
+			}
+		})
+
+		treeEditor.setEditor(text, item)
+	}
+}
+
+def makeContactsGUI(powerbox, contactsList) {
+	def shell := powerbox.makeShell()
+	shell.setText("Contacts")
+	shell.open()
+
+	def panel := shell.getPanel()
+
+	def list := <widget:makeTree>(panel, SWT.getBORDER())
+	def itemToContact := [].asMap().diverge()
+	def rename := makeEditor(list)
+
+	def menu := <widget:makeMenu>(list)
+
+	def guiRename(item) {
+		def contact := itemToContact[item]
+		rename(item, def _(newName) {
+			contact.rename(newName)
+			item.setText(newName)
+		})
+	}
+
+	def renameItem := <widget:makeMenuItem>(menu, 0)
+	renameItem.setText("Rename")
+	renameItem.addSelectionListener(def _ {
+		to widgetSelected(ev) {
+			def [item] := list.getSelection()
+			guiRename(item)
+		}
+	})
+
+	def invite := <widget:makeMenuItem>(menu, 0)
+	invite.setText("Send Invitation")
+	invite.addSelectionListener(def _ {
+		to widgetSelected(ev) {
+		}
+	})
+
+	def accept := <widget:makeMenuItem>(menu, 0)
+	accept.setText("Accept Invitation")
+	accept.addSelectionListener(def _ {
+		to widgetSelected(ev) {
+		}
+	})
+
+	list.setMenu(menu)
+
+	def addButton := <widget:makeButton>(panel, SWT.getPUSH())
+	addButton.setText("Add Contact...")
+
+	def nameToItem := [].asMap().diverge()
+
+	addButton.addSelectionListener(def _ {
+		to widgetSelected(ev) {
+			def item := <widget:makeTreeItem>(list, 0)
+			<widget:makeControl>.transferFocus([panel], list)
+			def contact := contactsList.addContact("<unnamed contact>")
+			itemToContact[item] := contact
+			item.setText(contact.getName())
+			guiRename(item)
+		}
+	})
+
+	list.addSelectionListener(def _ {
+		to widgetSelected(ev) {
+		}
+
+		to widgetDefaultSelected(ev) {
+			menu.setVisible(true)
+		}
+	})
+
+	for contactName => contact in contactsList.listContacts() {
+		def item := <widget:makeTreeItem>(list, 0)
+		item.setText(contactName)
+		itemToContact[item] := contact
+	}
+
+	swtGrid`$panel: $list.X.Y
+			$addButton.X`
+}

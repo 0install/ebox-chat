@@ -4,32 +4,41 @@ def SWT := <swt:makeSWT>
 def <swttools> := <import:org.erights.e.ui.swt.*>
 def swtGrid__quasiParser := <swttools:swtGridQParserMaker>()
 
-def makeContactsList(group, contacts, alert) {
-	def list := <widget:makeList>(group, SWT.getBORDER())
+def makePairingPanel(group, importExport) {
+	group.setText("Set up pairing")
 
-	def inviteLabel := <widget:makeLabel>(group, 0)
-	inviteLabel.setText("Name: ")
+	def label := <widget:makeLabel>(group, SWT.getWRAP())
+	label.setText("You need to 'pair' this instance with the person with whom you want to chat.\n" +
+			"One of you should export a pairing capability and the other should import it.\n" +
+			"The pairing capability should be sent by secure means and protected until " +
+			"pairing is complete.")
 
-	def inviteName := <widget:makeText>(group, SWT.getBORDER())
-	def inviteButton := <widget:makeButton>(group, SWT.getPUSH())
-	inviteButton.setText("Invite")
-	inviteButton.addSelectionListener(def _ {
+	def exportButton := <widget:makeButton>(group, SWT.getPUSH())
+	exportButton.setText("Export pairing capability")
+
+	def importButton := <widget:makeButton>(group, SWT.getPUSH())
+	importButton.setText("Import pairing capability")
+
+	exportButton.addSelectedListener(def _ {
 		to widgetSelected(ev) {
-			try {
-				def name := inviteName.getText()
-				contacts.invite(name)
-				list.add(name)
-			} catch ex {
-				alert(`$ex`)
-			}
+			importExport.exportCap()
 		}
 	})
 
-	swtGrid`$group: $list.X.Y
-			$inviteLabel $inviteName.X $inviteButton`
+	swtGrid`$group: $label.X
+			$exportButton.X $importButton.X`
 }
 
-def makeChatGUI(powerbox, contacts) {
+def makePairedPanel(group, done) {
+	group.setText("Ready to connect")
+
+	def label := <widget:makeLabel>(group, SWT.getWRAP())
+	label.setText("Click Connect to start a call.")
+
+	swtGrid`$group: $label.X.Y`
+}
+
+def makeChatGUI(powerbox, networking) {
 	def shell := powerbox.makeShell()
 	shell.setText("Boxchat")
 	shell.open()
@@ -38,12 +47,41 @@ def makeChatGUI(powerbox, contacts) {
 
 	def log := <widget:makeText>(panel, SWT.getBORDER() | SWT.getWRAP() | SWT.getREAD_ONLY())
 
-	def contactsGroup := <widget:makeGroup>(panel, 0)
-	contactsGroup.setText("Contacts")
+	var partner := powerbox.fetchAuth("partner", fn { null })
+	var controls := null
 
-	makeContactsList(contactsGroup, contacts, shell.alert)
+	def makeControls() {
+		if (controls != null) {
+			controls.dispose()
+		}
+		controls := <widget:makeGroup>(panel, 0)
 
-	swtGrid`$panel: $log.X.Y $contactsGroup.X.Y`
+		if (partner == null) {
+			def importExport {
+				to getDefaultFilename() {
+					return "pairing.cap"
+				}
+
+				to saveFile(file) {
+					file.setText(introducer.sturdyToURI(pairingSR))
+					makeControls<-()
+				}
+			}
+
+			makePairingPanel(controls, def _ {
+				to exportCap() {
+					shell.saveFile(importExport)
+				}
+			})
+		} else {
+			makePairedPanel(controls, makeControls)
+		}
+
+		swtGrid`$panel: $log.X.Y
+				$controls.X.Y`
+	}
+
+	makeControls()
 
 	return def gui {
 		to log(msg :String) {
