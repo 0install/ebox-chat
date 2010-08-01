@@ -1,0 +1,148 @@
+def eParser := <elang:syntax.makeEParser>
+def surgeon := <elib:serial.makeSurgeon>.withSrcKit(null)
+def Term := <type:org.quasiliteral.term.Term>
+def MAX_LONG := 0x7fffffffffffffff
+
+def makeContactsList(identityMgr, contactsFile, acceptCall) {
+	var contactsDoc := if (contactsFile.exists()) {
+		eParser(contactsFile.getText()).eval(safeScope)
+	} else {
+		[].asMap()
+	}
+
+	def save() {
+		contactsFile.setText(surgeon.serialize(contactsDoc))
+	}
+
+	def nameToContact := [].asMap().diverge()
+
+	def makeContact(swissBase) {
+		var optProblem := null
+
+		def getName() {
+			return contactsDoc[swissBase]["name"]
+		}
+
+		def endpoint {
+			to call(caller) {
+				require(optProblem == null, optProblem)
+
+				return acceptCall(getName(), caller)
+			}
+		}
+
+		def endpointSR := identityMgr.makeSturdyRef(endpoint, swissBase, MAX_LONG)
+
+		var currentPairing := null
+
+		def contact {
+			to __holdEndpoint() {
+				endpoint		# Prevent GC
+			}
+
+			to getStatus() {
+				if (currentPairing != null) {
+					return "pairing"
+				} else if (contactsDoc[swissBase].fetch("paired", fn {false})) {
+					return "paired"
+				} else {
+					return "unpaired"
+				}
+			}
+
+			to getPairingEndpoint() {
+				require(optProblem == null, optProblem)
+
+				if (currentPairing != null) {
+					currentPairing.disable()
+					currentPairing := null
+				}
+
+				var optPairingProblem := null
+				def pair {
+					to run() {
+						require(optPairingProblem == null, optPairingProblem)
+						optPairingProblem := Ref.broken("already paired!")
+						currentPairing := null
+						contactsDoc with= (swissBase, contactsDoc[swissBase].with("paired", true))
+						save()
+						return endpointSR
+					}
+
+					to disable() {
+						optPairingProblem := Ref.broken("pairing offer superceeded by new offer")
+					}
+				}
+				currentPairing := pair		# Prevent GC
+				return identityMgr.makeSturdyRef(pair, identityMgr.nextSwiss(), MAX_LONG)
+			}
+
+			to getName() {
+				return getName()
+			}
+
+			to rename(newName :String) {
+				require(optProblem == null, optProblem)
+				if (nameToContact.maps(newName)) {
+					throw(`already have a contact named $newName!`)
+				} else {
+					nameToContact.removeKey(getName())
+					nameToContact[newName] := contact
+					contactsDoc with= (swissBase, contactsDoc[swissBase].with("name", newName))
+
+					save()
+				}
+			}
+
+			to remove() {
+				require(optProblem == null, optProblem)
+				optProblem := Ref.broken(`contact removed`)
+				nameToContact.removeKey(getName())
+				contactsDoc without= (swissBase)
+
+				save()
+			}
+		}
+
+		def name := contact.getName()
+		require(!nameToContact.maps(name), `already have a contact named $name!`)
+		nameToContact[name] := contact
+
+		return contact
+	}
+
+	def pickUnusedName(suggestion :String) {
+		if (!nameToContact.maps(suggestion)) {
+			return suggestion
+		}
+
+		var i := 2
+		while (true) {
+			def attempt := `$suggestion $i`
+			if (!nameToContact.maps(attempt)) {
+				return attempt
+			}
+			i += 1
+		}
+	}
+
+	for swissBase => info in contactsDoc {
+		def obj := makeContact(swissBase)
+	}
+
+	return def contactsList {
+		to addContact(suggestedName :String) {
+			def swissBase := identityMgr.nextSwiss()
+			def name := pickUnusedName(suggestedName)
+			def info := [ => name ]
+			contactsDoc with= (swissBase, info)
+			def obj := makeContact(swissBase)
+			save()
+			return obj
+		}
+
+		to listContacts() :Map {
+			return nameToContact.snapshot()
+		}
+	}
+}
