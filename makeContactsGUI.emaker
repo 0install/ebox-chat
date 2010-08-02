@@ -100,6 +100,20 @@ def makeContactsGUI(powerbox, contactsList) {
 		}
 	})
 
+	def remove := <widget:makeMenuItem>(menu, 0)
+	remove.setText("Remove Contact")
+	remove.addSelectionListener(def _ {
+		to widgetSelected(ev) {
+			def [item] := list.getSelection()
+			def contact := itemToContact[item]
+			if (shell.confirm(`Remove ${contact.getName()}?`)) {
+				contact.remove()
+				item.dispose()
+				itemToContact.removeKey(item)
+			}
+		}
+	})
+
 	list.setMenu(menu)
 
 	def addButton := <widget:makeButton>(panel, SWT.getPUSH())
