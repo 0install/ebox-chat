@@ -1,0 +1,66 @@
+def <swt> := <import:org.eclipse.swt.*>
+def <widget> := <swt:widgets.*>
+def SWT := <swt:makeSWT>
+def <swttools> := <import:org.erights.e.ui.swt.*>
+def swtGrid__quasiParser := <swttools:swtGridQParserMaker>()
+
+def makeCallGUI(shell, callerName, remoteEnd) {
+	def panel := shell.getPanel()
+
+	def log := <widget:makeText>(panel, SWT.getMULTI() | SWT.getBORDER() | SWT.getREAD_ONLY())
+	def input := <widget:makeText>(panel, SWT.getBORDER())
+
+	swtGrid`$panel: $log.X.Y
+			$input.X`
+	shell.open()
+
+	<widget:makeControl>.transferFocus([panel], input)
+
+	shell.whenDisposed(fn { remoteEnd<-hangUp() })
+
+	var enabled := true
+
+	# The person at the other end of the call is given access to this object
+	def localEnd {
+		to say(msg :String) {
+			require(enabled, "Can't say anything after hanging up!")
+			log.append(`$callerName: $msg` +  "\n")
+		}
+
+		to hangUp() {
+			enabled := false
+			if (!panel.isDisposed()) {
+				log.append("End of call\n")
+				input.setEnabled(false)
+			}
+		}
+	}
+
+	input.addSelectionListener(def _ {
+		to widgetDefaultSelected(ev) {
+			def msg := input.getText()
+			input.setText("")
+			log.append(`me: $msg` + "\n")
+			remoteEnd<-say(msg)
+		}
+	})
+
+	when (remoteEnd) -> {
+		log.append("Connected!\n")
+	} catch ex {
+		if (enabled) {
+			log.append(`Lost connection: $ex`)
+			input.setEnabled(false)
+		}
+	}
+
+	return def callGUI {
+		to getLocalEnd() {
+			return localEnd
+		}
+
+		to log(msg) {
+			log.append(msg + "\n")
+		}
+	}
+}

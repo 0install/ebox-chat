@@ -5,7 +5,11 @@ def makeApplication(options, args) {
 	def makeAtomicFile := <import:org.erights.e.extern.persist.makeAtomicFile>
 
 	def acceptCall(callerName :String, caller) {
-		return <this:makeCallGUI>(callerName, caller)
+		def remoteEnd
+		def callShell := powerbox.makeShell()
+		callShell.setText(`Call from $callerName`)
+		def callGUI := <this:makeCallGUI>(callShell, callerName, caller)
+		return callGUI.getLocalEnd()
 	}
 
 	def configFile := <data:serverConfig>

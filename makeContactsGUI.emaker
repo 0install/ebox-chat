@@ -80,6 +80,22 @@ def makeContactsGUI(powerbox, contactsList) {
 		}
 	})
 
+	def call := <widget:makeMenuItem>(menu, 0)
+	call.setText("Call")
+	call.addSelectionListener(def _ {
+		to widgetSelected(ev) {
+			def [item] := list.getSelection()
+			def contact := itemToContact[item]
+			def name := contact.getName()
+			def callShell := powerbox.makeShell()
+			callShell.setText(`calling $name`)
+			def remoteEnd
+			def callGUI := <this:makeCallGUI>(callShell, name, remoteEnd)
+			callGUI.log("Dialing...")
+			bind remoteEnd := contact.getRemote()<-call(callGUI.getLocalEnd())
+		}
+	})
+
 	def invite := <widget:makeMenuItem>(menu, 0)
 	invite.setText("Send Invitation")
 	invite.addSelectionListener(def _ {
