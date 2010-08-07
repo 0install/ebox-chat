@@ -12,6 +12,7 @@ def makeCallGUI(shell, callerName, remoteEnd) {
 
 	swtGrid`$panel: $log.X.Y
 			$input.X`
+	panel.layout()
 	shell.open()
 
 	<widget:makeControl>.transferFocus([panel], input)

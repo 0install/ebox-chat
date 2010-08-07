@@ -166,4 +166,5 @@ def makeContactsGUI(shell, powerbox, contactsList) {
 
 	swtGrid`$panel: $list.X.Y
 			$addButton.X`
+	panel.layout()
 }
