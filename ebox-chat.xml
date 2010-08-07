@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
-<interface xmlns="http://zero-install.sourceforge.net/2004/injector/interface"
-  	   xmlns:e="http://erights.org/0install">
+<?xml-stylesheet type='text/xsl' href='interface.xsl'?>
+<interface xmlns="http://zero-install.sourceforge.net/2004/injector/interface" xmlns:e="http://erights.org/0install">
   <name>ebox-chat</name>
   <summary>sandboxed chat program</summary>
   <description>
@@ -10,9 +10,9 @@
 
   <feed-for interface="http://0install.net/tests/ebox-chat.xml"/>
 
-  <implementation id="." version="0.1-pre" e:main='boxchat.e-swt'>
-    <requires interface='http://0install.net/tests/ebox-help.xml'>
-      <environment name='help' insert=''/>
+  <implementation e:main="boxchat.e-swt" id="." released="2010-08-07" version="0.1">
+    <requires interface="http://0install.net/tests/ebox-help.xml">
+      <environment insert="" name="help"/>
     </requires>
   </implementation>
 </interface>
