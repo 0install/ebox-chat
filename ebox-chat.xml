@@ -10,7 +10,7 @@
 
   <feed-for interface="http://0install.net/tests/ebox-chat.xml"/>
 
-  <implementation e:main="boxchat.e-swt" id="." released="2010-08-07" version="0.1">
+  <implementation e:main="boxchat.e-swt" id="." version="0.1-post">
     <requires interface="http://0install.net/tests/ebox-help.xml">
       <environment insert="" name="help"/>
     </requires>
