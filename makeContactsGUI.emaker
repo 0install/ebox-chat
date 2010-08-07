@@ -43,8 +43,7 @@ def makeEditor(tree) {
 	}
 }
 
-def makeContactsGUI(powerbox, contactsList) {
-	def shell := powerbox.makeShell()
+def makeContactsGUI(shell, powerbox, contactsList) {
 	shell.setText("Contacts")
 	shell.open()
 

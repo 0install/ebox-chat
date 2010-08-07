@@ -2,6 +2,14 @@ def makeApplication(options, args) {
 	require(options == [], `Unsupported options: $options`)
 	require(args == [], `This program takes no arguments: $args`)
 
+	def contactsShell := powerbox.makeShell()
+
+	def capTPNetworking :Map := powerbox.fetchAuth("network", fn {
+		def nw := contactsShell.requestCapTPNetworking()
+		powerbox.setAuth("network", nw)
+		nw
+	})
+
 	def makeAtomicFile := <import:org.erights.e.extern.persist.makeAtomicFile>
 
 	def acceptCall(callerName :String, caller) {
@@ -13,10 +21,11 @@ def makeApplication(options, args) {
 	}
 
 	def configFile := <data:serverConfig>
-	<this:networking>(configFile, introducer, println)
+	<this:networking>(configFile, capTPNetworking["introducer"], println)
 
-	def list := <this:makeContactsList>(introducer, identityMgr, makeAtomicFile(<data>, "contacts.json"), acceptCall)
-	def gui := <this:makeContactsGUI>(powerbox, list)
+	def list := <this:makeContactsList>(capTPNetworking["introducer"], capTPNetworking["identityMgr"],
+					    makeAtomicFile(<data>, "contacts.json"), acceptCall)
+	def gui := <this:makeContactsGUI>(contactsShell, powerbox, list)
 
 	# will continue when all windows are closed
 	interp.blockAtTop()
