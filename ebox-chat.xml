@@ -1,14 +1,17 @@
 <?xml version="1.0" ?>
 <interface xmlns="http://zero-install.sourceforge.net/2004/injector/interface"
   	   xmlns:e="http://erights.org/0install">
-  <name>boxchat</name>
+  <name>ebox-chat</name>
   <summary>sandboxed chat program</summary>
   <description>
-    Boxchat is a demonstration chat client. It allows secure two-way text-based communication with another instance of itself.
+    EBox-Chat is a demonstration chat client. It allows secure two-way text-based communication with another instance of itself.
     It is designed to be installed using the ebox demonstration sandboxing system.
   </description>
+
+  <feed-for interface="http://0install.net/tests/ebox-chat.xml"/>
+
   <implementation id="." version="0.1-pre" e:main='boxchat.e-swt'>
-    <requires interface='/home/talex/Projects/zero-install/ebox/demo/help/help.xml'>
+    <requires interface='http://0install.net/tests/ebox-help.xml'>
       <environment name='help' insert=''/>
     </requires>
   </implementation>
