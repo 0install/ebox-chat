@@ -11,6 +11,7 @@
   <feed-for interface="http://0install.net/tests/ebox-chat.xml"/>
 
   <implementation e:main="boxchat.e-swt" id="." version="0.1-post">
+    <command name='org.erights/rune' path='boxchat.e-swt'/>
     <requires interface="http://0install.net/tests/ebox-help.xml">
       <environment insert="" name="help"/>
     </requires>
